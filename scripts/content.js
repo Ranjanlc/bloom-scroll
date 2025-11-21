@@ -4,7 +4,7 @@ function getApiKeyIfEnabled() {
       if (data.isEnabled && data.groqApiKey) {
         resolve(data.groqApiKey);
       } else {
-        console.warn("GROQ API key not found or extension is disabled.");
+        console.warn("X AI API key not found or extension is disabled.");
         resolve(null);
       }
     });
@@ -63,7 +63,7 @@ async function initExtension() {
   const apiKey = await getApiKeyIfEnabled();
   if (!apiKey) {
     console.warn(
-      "GROQ API key not found. Please set your API key in the extension settings."
+      "X AI API key not found. Please set your API key in the extension settings."
     );
     return;
   }
@@ -108,14 +108,15 @@ function cringeGuardThisPost(post, filterMode, reason, platform) {
   // We try to find the specific update container, falling back to the passed node.
   const contentContainer =
     platform === "twitter"
-      ? (post.closest('article') || post)
-      : (post.closest('div[data-view-name="feed-full-update"]') || post);
+      ? post.closest("article") || post
+      : post.closest('div[data-view-name="feed-full-update"]') || post;
 
   // 2. Find the outer list item wrapper to handle removal cleanly
   const outerContainer =
     platform === "twitter"
-      ? (contentContainer.closest('div[data-testid="cellInnerDiv"]') || contentContainer)
-      : (contentContainer.closest('div[role="listitem"]') || contentContainer);
+      ? contentContainer.closest('div[data-testid="cellInnerDiv"]') ||
+        contentContainer
+      : contentContainer.closest('div[role="listitem"]') || contentContainer;
 
   if (outerContainer) {
     // --- REMOVE MODE ---
@@ -145,7 +146,7 @@ function cringeGuardThisPost(post, filterMode, reason, platform) {
     wrapper.style.filter = "blur(12px)";
     wrapper.style.webkitFilter = "blur(12px)";
     wrapper.style.transition = "filter 0.3s ease, opacity 0.3s ease";
-    wrapper.style.opacity = "0.4"; // Lower opacity helps obscure content further
+    wrapper.style.opacity = "0.6"; // Lower opacity helps obscure content further
     wrapper.style.width = "100%";
     wrapper.style.height = "auto"; // Ensure it takes up natural height
     wrapper.style.pointerEvents = "none"; // Prevent clicking links while blurred
@@ -170,7 +171,8 @@ function cringeGuardThisPost(post, filterMode, reason, platform) {
     button.style.zIndex = "100"; // High Z-index to sit on top
 
     // Button Visuals
-    button.style.backgroundColor = platform === "twitter" ? "#1d9bf0" : "#0a66c2";
+    button.style.backgroundColor =
+      platform === "twitter" ? "#1d9bf0" : "#0a66c2";
     button.style.color = "white";
     button.style.border = "none";
     button.style.padding = "10px 20px";
@@ -316,13 +318,18 @@ async function checkForCringe({
       : "You are a LinkedIn post analyzer. Determine if the post meets any of these criteria:";
   const promptFromFilters =
     criteria.length > 0
-      ? `${SYSTEM_PROMPT_PREFIX}\n- ${criteria.join("\n- ")}\nIf any criteria are met, respond with POST_IS_CRINGE, otherwise POST_IS_NOT_CRINGE.`
-      : (platform === "twitter"
-        ? "You are a Twitter/X post analyzer. No filters are active. Always respond with POST_IS_NOT_CRINGE."
-        : "You are a LinkedIn post analyzer. No filters are active. Always respond with POST_IS_NOT_CRINGE.");
+      ? `${SYSTEM_PROMPT_PREFIX}\n- ${criteria.join(
+          "\n- "
+        )}\nIf any criteria are met, respond with POST_IS_CRINGE, otherwise POST_IS_NOT_CRINGE.`
+      : platform === "twitter"
+      ? "You are a Twitter/X post analyzer. No filters are active. Always respond with POST_IS_NOT_CRINGE."
+      : "You are a LinkedIn post analyzer. No filters are active. Always respond with POST_IS_NOT_CRINGE.";
 
   const customPrompt = await getCustomPrompt();
-  const systemMessage = customPrompt && customPrompt.trim().split(/\s+/).length >= 5 ? customPrompt : promptFromFilters;
+  const systemMessage =
+    customPrompt && customPrompt.trim().split(/\s+/).length >= 5
+      ? customPrompt
+      : promptFromFilters;
 
   try {
     const response = await fetch(GROQ_API_URL, {
@@ -338,7 +345,9 @@ async function checkForCringe({
           {
             role: "user",
             content:
-              (platform === "twitter" ? "Twitter/X Post:\n\n" : "LinkedIn Post:\n\n") +
+              (platform === "twitter"
+                ? "Twitter/X Post:\n\n"
+                : "LinkedIn Post:\n\n") +
               postContent +
               "\n\nRespond EXACTLY in one line: if cringe, 'POST_IS_CRINGE: <one short reason>'; if not, 'POST_IS_NOT_CRINGE'.",
           },
@@ -355,7 +364,8 @@ async function checkForCringe({
     const raw = (data.choices?.[0]?.message?.content || "").trim();
     const lower = raw.toLowerCase();
     if (lower.includes("post_is_cringe")) {
-      const reason = raw.split(/post_is_cringe\s*:?/i)[1]?.trim() || "Cringe content";
+      const reason =
+        raw.split(/post_is_cringe\s*:?/i)[1]?.trim() || "Cringe content";
       return { isCringe: true, reason };
     }
     return { isCringe: false, reason: null };
@@ -509,11 +519,11 @@ async function processTwitterPost(post) {
 
   const userNames = post.querySelector('div[data-testid="User-Names"]');
   if (userNames) {
-    const nameSpan = userNames.querySelector('span');
+    const nameSpan = userNames.querySelector("span");
     if (nameSpan) actorName = nameSpan.innerText.trim();
   }
 
-  const spans = post.querySelectorAll('span');
+  const spans = post.querySelectorAll("span");
   spans.forEach((s) => {
     const t = (s.innerText || "").trim().toLowerCase();
     if (t === "promoted") actorDescription = "Promoted";
@@ -541,7 +551,9 @@ async function processTwitterPost(post) {
 
 function cringeGuardExistingTweets() {
   startHeartbeat("scan");
-  const tweets = document.querySelectorAll('article[data-testid="tweet"], article[role="article"]');
+  const tweets = document.querySelectorAll(
+    'article[data-testid="tweet"], article[role="article"]'
+  );
   tweets.forEach((t) => processTwitterPost(t));
 }
 
@@ -552,7 +564,9 @@ function observeNewTweets() {
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            const newTweets = node.querySelectorAll('article[data-testid="tweet"], article[role="article"]');
+            const newTweets = node.querySelectorAll(
+              'article[data-testid="tweet"], article[role="article"]'
+            );
             newTweets.forEach((post) => processTwitterPost(post));
           }
         });

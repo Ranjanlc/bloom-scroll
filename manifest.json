@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Bloom Scroll: filter out cringe content on your LinkedIn feed using AI",
+  "name": "Bloom Scroll: filter out clutter from your feed",
   "author": "Ranjan Lamichhane",
-  "version": "1.0.0",
-  "description": "AI-powered Chrome extension that filters cringe, clickbait & low-value posts from your LinkedIn and X feed in real-time.",
+  "version": "1.1.0",
+  "description": "AI-powered Chrome extension that filters off-topic, clickbait & low-value posts from your LinkedIn and X feed in real-time.",
   "content_scripts": [
     {
       "js": ["scripts/content.js"],
@@ -25,5 +25,5 @@
     "default_title": "Bloom Scroll"
   },
   "options_page": "./pages/settings.html",
-  "permissions": ["storage"]
+  "permissions": ["storage", "tabs"]
 }

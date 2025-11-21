@@ -19,8 +19,8 @@ Bloom Scroll filters out low‑value content from your LinkedIn or Twitter/X fee
 1. **Detects New Posts**: As new posts appear in your feed, the extension detects them in real time.
 2. **Sends for Analysis**: The post content is sent to an AI provider (via API) that classifies it based on your active filters.
 3. **Filters Content**: Posts identified as low‑value are filtered according to your preferred mode:
-   - Blur Mode: Blurs cringe until you decide (with a "Click to View" option)
-   - Vanish Mode: Vanish cringe completely from your feed
+   - Blur Mode: Blurs clutter until you decide (with a "Click to View" option)
+   - Vanish Mode: Vanish clutter completely from your feed
 4. **User Control**: Configure everything in the Settings page – API key, filter toggles, muted words, and an optional custom system prompt.
 
 Filtering settings are shared across both LinkedIn and Twitter/X; only the scraping logic differs per site.
