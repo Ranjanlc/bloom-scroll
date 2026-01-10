@@ -379,9 +379,9 @@ const alreadyProcessedPosts = new Set();
 async function processLinkedInPost(post) {
   startHeartbeat("process");
 
-  // Updated Selector: Use data-view-name or data-testid as classes are now obfuscated
+  // Updated Selector: Target the commentary text by its class
   const commentaryElement = post.querySelector(
-    '[data-view-name="feed-commentary"], [data-testid="expandable-text-box"]'
+    ".update-components-update-v2__commentary"
   );
 
   if (!commentaryElement) {
@@ -405,42 +405,44 @@ async function processLinkedInPost(post) {
   let actorSubDescription = "No sub-description";
   let postImage = "No Image";
 
-  // Updated Logic: Anchor to the Author Name link which has a stable data attribute
-  const nameAnchor = post.querySelector('a[data-view-name="feed-header-text"]');
+  // Extract actor information from the update-components-actor section
+  const actorMetaLink = post.querySelector(
+    ".update-components-actor__meta-link"
+  );
 
-  if (nameAnchor) {
-    // 1. Extract Name
-    actorName = nameAnchor.innerText.trim();
+  if (actorMetaLink) {
+    // 1. Extract Name from the title span
+    const nameElement = actorMetaLink.querySelector(
+      '.update-components-actor__title span[dir="ltr"] span:not(.visually-hidden)'
+    );
+    if (nameElement) {
+      actorName = nameElement.innerText.trim();
+    }
 
-    // 2. Extract Description & Sub-description
-    // Navigate up to the parent div that contains Name (p), Description (p), and Time (p)
-    // Structure is usually: Div > [P(Name), P(Description), P(Time)]
-    const headerTextContainer = nameAnchor.closest("div");
-
-    if (headerTextContainer) {
-      const textBlocks = headerTextContainer.querySelectorAll("p");
-
-      // The Description is usually the immediate sibling paragraph after the name
-      if (textBlocks.length > 1) {
-        actorDescription = textBlocks[1].innerText.trim();
-      }
-
-      // The Sub-description (Time/Edited) is usually the next paragraph
-      if (textBlocks.length > 2) {
-        actorSubDescription = textBlocks[2].innerText.trim();
-      }
+    // 2. Extract Description (usually the user's headline/position)
+    const descriptionElement = actorMetaLink.querySelector(
+      ".update-components-actor__description span:not(.visually-hidden)"
+    );
+    if (descriptionElement) {
+      actorDescription = descriptionElement.innerText.trim();
     }
   }
 
-  // 3. Extract Image (if present)
-  // Looking for the main feed update image container
-  const imageContainer = post.querySelector(
-    '[data-view-name="feed-update-image"] img'
+  // 3. Extract Sub-description (time and visibility info)
+  const subDescElement = post.querySelector(
+    ".update-components-actor__sub-description span:not(.visually-hidden)"
   );
+  if (subDescElement) {
+    actorSubDescription = subDescElement.innerText.trim();
+  }
+
+  // 4. Extract Image (if present)
+  const imageContainer = post.querySelector(".update-components-image img");
   if (imageContainer) {
     postImage = imageContainer.getAttribute("src");
   }
-
+  startHeartbeat("gone far enough");
+  console.log(commentaryElement?.innerText?.trim());
   const analysis = await checkForCringe({
     actorName,
     actorDescription,
@@ -482,16 +484,18 @@ function observeNewPostsLinkedIn() {
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            // Updated selector based on the new HTML structure
-            // Targets the main container of the feed update
+            // Check if the node itself is a post container
+            if (
+              node.matches &&
+              node.matches('div[data-view-name="feed-full-update"]')
+            ) {
+              processLinkedInPost(node);
+            }
+
+            // Also check children for post containers
             const postContainers = node.querySelectorAll(
               'div[data-view-name="feed-full-update"]'
             );
-
-            if (postContainers.length === 0) {
-              // Optional: Log suppressed to avoid console spam during lazy loading
-              // console.warn("[Bloom Scroll] No post containers in added node");
-            }
 
             postContainers.forEach((postContainer) => {
               processLinkedInPost(postContainer);
