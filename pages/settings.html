@@ -129,11 +129,11 @@
             border-radius: 50%;
         }
 
-        input:checked + .slider {
+        input:checked+.slider {
             background: #0077b5;
         }
 
-        input:checked + .slider:before {
+        input:checked+.slider:before {
             transform: translateX(18px);
         }
 
@@ -415,22 +415,22 @@
     <div class="container">
 
         <div class="card">
-            <h2>Groq API Key</h2>
+            <h2>xAI API Key</h2>
             <div class="instructions">
                 <p>
-                    To get your Groq API key, follow these steps:
+                    To get your xAI API key, follow these steps:
                 </p>
                 <ol>
-                    <li>Sign up or log in to your <a href="https://groq.com/" target="_blank">Groq account</a>.</li>
+                    <li>Sign up or log in to your <a href="https://console.x.ai/" target="_blank">xAI account</a>.</li>
                     <li>Navigate to the API section in your dashboard.</li>
                     <li>Generate a new API key and copy it.</li>
                     <li>Paste the key in the field below and click "Save".</li>
                 </ol>
             </div>
             <div class="api-key-section">
-                <label for="api-key">Enter your Groq API Key:</label>
+                <label for="api-key">Enter your xAI API Key:</label>
                 <div class="input-group">
-                    <input type="text" id="api-key" placeholder="Your Groq API Key">
+                    <input type="text" id="api-key" placeholder="Your xAI API Key (starts with xai-)">
                     <button id="save-button">Save</button>
                 </div>
             </div>
@@ -479,16 +479,20 @@
         </div>
 
         <div class="card">
-            <h2>Custom Prompt</h2>
+            <h2>Custom Filters</h2>
             <div class="instructions">
-                <p>Provide a custom system prompt for Bloom Scroll. Minimum 5 words.</p>
+                <p>Provide a custom system filters for Bloom Scroll. Minimum 5 words.</p>
             </div>
             <div class="api-key-section prompt-section">
-                <label for="custom-prompt">Enter your custom prompt:</label>
-                <textarea id="custom-prompt" placeholder="e.g., Classify posts as low-value using these criteria..." rows="4" style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; box-sizing:border-box;"></textarea>
+                <label for="custom-prompt">Enter your custom filters:</label>
+                <textarea id="custom-prompt" placeholder="e.g., Classify posts as low-value using these criteria..."
+                    rows="4"
+                    style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; box-sizing:border-box;"></textarea>
                 <button id="save-prompt-button">Save Prompt</button>
-                <div id="prompt-error" class="success-message" style="display:none; color:#dc2626;">Prompt must be at least 5 words.</div>
-                <div id="prompt-success" class="success-message" style="display:none;">✅ Prompt saved successfully!</div>
+                <div id="prompt-error" class="success-message" style="display:none; color:#dc2626;">Prompt must be at
+                    least 5 words.</div>
+                <div id="prompt-success" class="success-message" style="display:none;">✅ Prompt saved successfully!
+                </div>
             </div>
         </div>
 
@@ -512,12 +516,14 @@
             <div class="muted-words-container" id="muted-words-container">
                 <div class="muted-words-list" id="muted-words-list"></div>
                 <div class="empty-state" id="empty-state">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 8px; opacity: 0.5;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        style="margin-bottom: 8px; opacity: 0.5;">
                         <path d="M9 12l2 2 4-4" />
                         <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />
                     </svg>
                     <div>No muted words yet</div>
-                    <div style="margin-top: 4px; font-size: 11px; opacity: 0.7;">Add words to automatically filter posts</div>
+                    <div style="margin-top: 4px; font-size: 11px; opacity: 0.7;">Add words to automatically filter posts
+                    </div>
                 </div>
                 <button class="clear-all-btn" id="clear-all-btn" style="display: none;">Clear All Words</button>
             </div>
@@ -528,7 +534,7 @@
             time and hides cringe worthy content.
         </div>
 
-        
+
     </div>
 
     <script src="./../scripts/settings.js"></script>
