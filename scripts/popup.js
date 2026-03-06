@@ -1,77 +1,96 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // check the stored API key when popup opens
-    chrome.storage.sync.get("groqApiKey", function (data) {
-        const errorCard = document.querySelector(".error-card");
+  // check the stored API key when popup opens
+  chrome.storage.sync.get("groqApiKey", function (data) {
+    const errorCard = document.querySelector(".error-card");
 
-        if (data.groqApiKey) {
-            errorCard.style.display = "none";
-        }
+    if (data.groqApiKey) {
+      errorCard.style.display = "none";
+    }
+  });
+
+  // toggle swish for cringe guard
+  const toggleSwitch = document.getElementById("toggle-switch");
+
+  // Load initial state from Chrome storage
+  chrome.storage.sync.get("isEnabled", function (data) {
+    toggleSwitch.checked = data.isEnabled ?? false; // Default to false
+  });
+
+  // Listen for toggle changes
+  toggleSwitch.addEventListener("change", function () {
+    chrome.storage.sync.set({ isEnabled: toggleSwitch.checked });
+  });
+
+  chrome.storage.sync.get(
+    ["cringeCount", "timeSavedInMinutes"],
+    function (data) {
+      document.getElementById("cringe-count").innerText = data.cringeCount || 0;
+      document.getElementById("time-saved").innerText =
+        Math.ceil(data.timeSavedInMinutes || 0) + "m";
+    }
+  );
+
+  // Load filter mode setting
+  chrome.storage.sync.get("filterMode", function (data) {
+    const filterMode = data.filterMode || "blur"; // Default to blur if not set
+    const toggleSlider = document.querySelector(".toggle-slider");
+
+    if (filterMode === "remove") {
+      toggleSlider.classList.add("remove");
+      toggleSlider.classList.remove("blur");
+      // TODO - description should be changed only from 1 place
+      document.getElementById("mode-description").textContent =
+        "Vanish clutter completely";
+    } else {
+      toggleSlider.classList.add("blur");
+      toggleSlider.classList.remove("remove");
+      document.getElementById("mode-description").textContent =
+        "Blurs clutter until you decide";
+    }
+  });
+
+  // Listen for filter mode changes
+  const toggleSlider = document.querySelector(".toggle-slider");
+  toggleSlider.addEventListener("click", function () {
+    const currentMode = this.classList.contains("blur") ? "blur" : "remove";
+    const newMode = currentMode === "blur" ? "remove" : "blur";
+
+    this.classList.remove(currentMode);
+    this.classList.add(newMode);
+
+    if (newMode === "remove") {
+      document.getElementById("mode-description").textContent =
+        "Vanish clutter completely";
+    } else {
+      document.getElementById("mode-description").textContent =
+        "Blurs clutter until you decide";
+    }
+
+    chrome.storage.sync.set({ filterMode: newMode }, function () {
+      if (currentMode === "blur" && newMode === "remove") {
+        chrome.tabs.query(
+          { active: true, currentWindow: true },
+          function (tabs) {
+            const tab = tabs[0];
+            if (!tab) return;
+            const url = tab.url || "";
+            if (
+              url.includes("linkedin.com") ||
+              url.includes("twitter.com") ||
+              url.includes("x.com")
+            ) {
+              chrome.tabs.reload(tab.id);
+            }
+          }
+        );
+      }
     });
+    console.log(`Filter mode changed to: ${newMode}`);
+  });
 
-    // toggle swish for cringe guard
-    const toggleSwitch = document.getElementById("toggle-switch");
-
-    // Load initial state from Chrome storage
-    chrome.storage.sync.get("isEnabled", function (data) {
-        toggleSwitch.checked = data.isEnabled ?? false; // Default to false
-    });
-
-    // Listen for toggle changes
-    toggleSwitch.addEventListener("change", function () {
-        chrome.storage.sync.set({ isEnabled: toggleSwitch.checked });
-    });
-
-    chrome.storage.sync.get(["cringeCount", "timeSavedInMinutes"], function (data) {
-        document.getElementById("cringe-count").innerText = data.cringeCount || 0;
-        document.getElementById("time-saved").innerText = Math.ceil(data.timeSavedInMinutes || 0) + "m";
-    });
-
-    // Load filter mode setting
-    chrome.storage.sync.get("filterMode", function (data) {
-        const filterMode = data.filterMode || "blur"; // Default to blur if not set
-        const toggleSlider = document.querySelector('.toggle-slider');
-
-        if (filterMode === "remove") {
-            toggleSlider.classList.add('remove');
-            toggleSlider.classList.remove('blur');
-            // TODO - description should be changed only from 1 place
-            document.getElementById('mode-description').textContent =
-                "Vanish cringe completely";
-        } else {
-            toggleSlider.classList.add('blur');
-            toggleSlider.classList.remove('remove');
-            document.getElementById('mode-description').textContent =
-                "Blurs cringe until you decide";
-        }
-    });
-
-    // Listen for filter mode changes
-    const toggleSlider = document.querySelector('.toggle-slider');
-    toggleSlider.addEventListener('click', function () {
-        const currentMode = this.classList.contains('blur') ? 'blur' : 'remove';
-        const newMode = currentMode === 'blur' ? 'remove' : 'blur';
-
-        this.classList.remove(currentMode);
-        this.classList.add(newMode);
-
-        // Update description
-        if (newMode === 'remove') {
-            document.getElementById('mode-description').textContent =
-                "Vanish cringe completely";
-        } else {
-            document.getElementById('mode-description').textContent =
-                "Blurs cringe until you decide";
-        }
-
-        chrome.storage.sync.set({ filterMode: newMode });
-        console.log(`Filter mode changed to: ${newMode}`);
-    });
-
-    // take user to the settings page
-    const settingsButton = document.querySelector('.settings-icon');
-    settingsButton.addEventListener('click', () => {
-        chrome.runtime.openOptionsPage();
-    });
-
-    
+  // take user to the settings page
+  const settingsButton = document.querySelector(".settings-icon");
+  settingsButton.addEventListener("click", () => {
+    chrome.runtime.openOptionsPage();
+  });
 });

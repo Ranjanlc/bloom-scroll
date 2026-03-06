@@ -4,7 +4,7 @@ function getApiKeyIfEnabled() {
       if (data.isEnabled && data.groqApiKey) {
         resolve(data.groqApiKey);
       } else {
-        console.warn("GROQ API key not found or extension is disabled.");
+        console.warn("X AI API key not found or extension is disabled.");
         resolve(null);
       }
     });
@@ -63,14 +63,20 @@ async function initExtension() {
   const apiKey = await getApiKeyIfEnabled();
   if (!apiKey) {
     console.warn(
-      "GROQ API key not found. Please set your API key in the extension settings."
+      "X AI API key not found. Please set your API key in the extension settings."
     );
-    return; // Stop execution if no API key
+    return;
   }
 
   startHeartbeat("init");
-  cringeGuardExistingPosts();
-  observeNewPosts();
+  const host = location.hostname;
+  if (host.includes("linkedin.com")) {
+    cringeGuardExistingPostsLinkedIn();
+    observeNewPostsLinkedIn();
+  } else if (host.includes("twitter.com") || host.includes("x.com")) {
+    cringeGuardExistingTweets();
+    observeNewTweets();
+  }
 }
 
 function estimateTimeSavedInSeconds(postText) {
@@ -97,7 +103,7 @@ function updateCringeStats(postText) {
   });
 }
 
-function cringeGuardThisPost(post, filterMode, reason) {
+function cringeGuardThisPost(post, filterMode, reason, platform) {
   // 1. Find the container.
   const isLinkedIn = window.location.hostname.includes("linkedin.com");
   const contentContainer = isLinkedIn
@@ -207,6 +213,7 @@ async function checkForCringe({
   actorDescription,
   actorSubDescription,
   postContent,
+  platform,
 }) {
   if (
     actorDescription.toLowerCase().includes("promoted") ||
@@ -306,7 +313,7 @@ async function checkForCringe({
 }
 
 const alreadyProcessedPosts = new Set();
-async function processPost(post) {
+async function processLinkedInPost(post) {
   startHeartbeat("process");
   const isLinkedIn = window.location.hostname.includes("linkedin.com");
 
@@ -349,6 +356,7 @@ async function processPost(post) {
     actorDescription,
     actorSubDescription,
     postContent: commentaryElement.innerText.trim(),
+    platform: "linkedin",
     postImage,
   });
 
@@ -363,7 +371,7 @@ async function processPost(post) {
   }
 }
 
-function cringeGuardExistingPosts() {
+function cringeGuardExistingPostsLinkedIn() {
   startHeartbeat("scan");
   const isLinkedIn = window.location.hostname.includes("linkedin.com");
   const posts = isLinkedIn
@@ -374,11 +382,11 @@ function cringeGuardExistingPosts() {
     console.warn(`[Bloom Scroll] No ${isLinkedIn ? 'LinkedIn' : 'X'} posts found in initial scan`);
   }
   for (const post of posts) {
-    processPost(post);
+    processLinkedInPost(post);
   }
 }
 
-function observeNewPosts() {
+function observeNewPostsLinkedIn() {
   startHeartbeat("observer");
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
@@ -403,6 +411,77 @@ function observeNewPosts() {
     });
   });
 
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+async function processTwitterPost(post) {
+  startHeartbeat("process");
+  const textEl = post.querySelector('[data-testid="tweetText"], div[lang]');
+  if (!textEl) return;
+  if (alreadyProcessedPosts.has(textEl)) return;
+  alreadyProcessedPosts.add(textEl);
+  processedCount++;
+
+  let actorName = "Unknown";
+  let actorDescription = "";
+  let actorSubDescription = "";
+
+  const userNames = post.querySelector('div[data-testid="User-Names"]');
+  if (userNames) {
+    const nameSpan = userNames.querySelector("span");
+    if (nameSpan) actorName = nameSpan.innerText.trim();
+  }
+
+  const spans = post.querySelectorAll("span");
+  spans.forEach((s) => {
+    const t = (s.innerText || "").trim().toLowerCase();
+    if (t === "promoted") actorDescription = "Promoted";
+  });
+
+  const analysis = await checkForCringe({
+    actorName,
+    actorDescription,
+    actorSubDescription,
+    postContent: textEl.innerText.trim(),
+    platform: "twitter",
+  });
+
+  if (analysis && analysis.isCringe) {
+    const { filterMode } = await new Promise((resolve) => {
+      chrome.storage.sync.get(["filterMode"], (data) => {
+        resolve({ filterMode: data.filterMode || "blur" });
+      });
+    });
+
+    cringeGuardThisPost(post, filterMode, analysis.reason, "twitter");
+    updateCringeStats(post.innerText);
+  }
+}
+
+function cringeGuardExistingTweets() {
+  startHeartbeat("scan");
+  const tweets = document.querySelectorAll(
+    'article[data-testid="tweet"], article[role="article"]'
+  );
+  tweets.forEach((t) => processTwitterPost(t));
+}
+
+function observeNewTweets() {
+  startHeartbeat("observer");
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === "childList") {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const newTweets = node.querySelectorAll(
+              'article[data-testid="tweet"], article[role="article"]'
+            );
+            newTweets.forEach((post) => processTwitterPost(post));
+          }
+        });
+      }
+    });
+  });
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
