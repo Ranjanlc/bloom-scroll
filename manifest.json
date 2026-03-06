@@ -6,11 +6,13 @@
   "description": "AI-powered Chrome extension that filters off-topic, clickbait & low-value posts from your LinkedIn and X feed in real-time.",
   "content_scripts": [
     {
-      "js": ["scripts/content.js"],
+      "js": [
+        "scripts/content.js"
+      ],
       "matches": [
         "https://www.linkedin.com/feed/*",
-        "https://twitter.com/*",
-        "https://x.com/*"
+        "https://x.com/*",
+        "https://twitter.com/*"
       ]
     }
   ],
@@ -25,5 +27,15 @@
     "default_title": "Bloom Scroll"
   },
   "options_page": "./pages/settings.html",
-  "permissions": ["storage", "tabs"]
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.x.ai/*",
+    "https://x.com/*",
+    "https://twitter.com/*"
+  ]
 }

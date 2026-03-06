@@ -105,74 +105,55 @@ function updateCringeStats(postText) {
 
 function cringeGuardThisPost(post, filterMode, reason, platform) {
   // 1. Find the container.
-  // We try to find the specific update container, falling back to the passed node.
-  const contentContainer =
-    platform === "twitter"
-      ? post.closest("article") || post
-      : post.closest('div[data-view-name="feed-full-update"]') || post;
+  const isLinkedIn = window.location.hostname.includes("linkedin.com");
+  const contentContainer = isLinkedIn
+    ? (post.closest('div[data-view-name="feed-full-update"]') || post.closest('.feed-shared-update-v2') || post)
+    : (post.closest('article[data-testid="tweet"]') || post);
 
   // 2. Find the outer list item wrapper to handle removal cleanly
-  const outerContainer =
-    platform === "twitter"
-      ? contentContainer.closest('div[data-testid="cellInnerDiv"]') ||
-        contentContainer
-      : contentContainer.closest('div[role="listitem"]') || contentContainer;
+  const outerContainer = isLinkedIn
+    ? (contentContainer.closest('div[role="listitem"]') || contentContainer)
+    : contentContainer;
 
   if (outerContainer) {
     // --- REMOVE MODE ---
     if (filterMode === "remove") {
       outerContainer.style.display = "none";
-      // Extra safety to ensure it doesn't take up space
       outerContainer.style.setProperty("display", "none", "important");
       console.log("[Bloom Scroll] Post removed");
       return;
     }
 
     // --- BLUR MODE ---
-
-    // Check if we've already blurred this to prevent double-buttoning
     if (contentContainer.dataset.cringeGuarded === "true") return;
     contentContainer.dataset.cringeGuarded = "true";
 
-    // Create the wrapper that will hold the text/images (to be blurred)
     const wrapper = document.createElement("div");
-
-    // Move all existing children of the post into this wrapper
     while (contentContainer.firstChild) {
       wrapper.appendChild(contentContainer.firstChild);
     }
 
-    // Style the Wrapper (The Blurred Content)
     wrapper.style.filter = "blur(12px)";
     wrapper.style.webkitFilter = "blur(12px)";
     wrapper.style.transition = "filter 0.3s ease, opacity 0.3s ease";
-    wrapper.style.opacity = "0.6"; // Lower opacity helps obscure content further
+    wrapper.style.opacity = "0.4";
     wrapper.style.width = "100%";
-    wrapper.style.height = "auto"; // Ensure it takes up natural height
-    wrapper.style.pointerEvents = "none"; // Prevent clicking links while blurred
+    wrapper.style.height = "auto";
+    wrapper.style.pointerEvents = "none";
 
-    // Style the Container (The Reference Point)
-    // IMPORTANT: We force display: block to break any flex/grid rules that might
-    // misplace our absolute button.
     contentContainer.style.position = "relative";
     contentContainer.style.display = "block";
-    contentContainer.style.minHeight = "150px"; // Force some height so 50% top works even if empty
-    contentContainer.style.overflow = "hidden"; // Keeps button inside rounded corners
+    contentContainer.style.minHeight = "150px";
+    contentContainer.style.overflow = "hidden";
 
-    // Create the Button
     const button = document.createElement("button");
     button.innerText = "Click to View";
-
-    // Robust Centering CSS
     button.style.position = "absolute";
     button.style.top = "50%";
     button.style.left = "50%";
     button.style.transform = "translate(-50%, -50%)";
-    button.style.zIndex = "100"; // High Z-index to sit on top
-
-    // Button Visuals
-    button.style.backgroundColor =
-      platform === "twitter" ? "#1d9bf0" : "#0a66c2";
+    button.style.zIndex = "100";
+    button.style.backgroundColor = "#0a66c2";
     button.style.color = "white";
     button.style.border = "none";
     button.style.padding = "10px 20px";
@@ -183,7 +164,6 @@ function cringeGuardThisPost(post, filterMode, reason, platform) {
     button.style.boxShadow = "0 4px 12px rgba(0,0,0,0.25)";
     button.style.transition = "transform 0.1s ease, background-color 0.2s";
 
-    // Hover Effects
     button.onmouseover = () => {
       button.style.backgroundColor = "#004182";
       button.style.transform = "translate(-50%, -50%) scale(1.05)";
@@ -194,27 +174,17 @@ function cringeGuardThisPost(post, filterMode, reason, platform) {
     };
 
     let reasonBadge;
-    // Click Handler
     button.addEventListener("click", (e) => {
-      e.stopPropagation(); // Prevent clicking the post underneath
+      e.stopPropagation();
       e.preventDefault();
-
-      // Reveal content
       wrapper.style.filter = "none";
       wrapper.style.webkitFilter = "none";
       wrapper.style.opacity = "1";
       wrapper.style.pointerEvents = "auto";
-
-      // Remove button
       button.remove();
       if (reasonBadge) reasonBadge.remove();
-
-      // Reset container styles strictly required for the layout to return to normal
-      // We keep 'block' usually, but if layout breaks, we can unset it.
-      // Usually leaving it as block is fine for feed updates.
     });
 
-    // Reason badge
     if (reason) {
       reasonBadge = document.createElement("div");
       reasonBadge.innerText = `Reason: ${reason}`;
@@ -233,7 +203,6 @@ function cringeGuardThisPost(post, filterMode, reason, platform) {
       contentContainer.appendChild(reasonBadge);
     }
 
-    // Append elements back to the container
     contentContainer.appendChild(wrapper);
     contentContainer.appendChild(button);
   }
@@ -246,7 +215,6 @@ async function checkForCringe({
   postContent,
   platform,
 }) {
-  // Cringe Rule: 0 - No Promoted Posts.
   if (
     actorDescription.toLowerCase().includes("promoted") ||
     actorSubDescription.toLowerCase().includes("promoted")
@@ -254,7 +222,6 @@ async function checkForCringe({
     return { isCringe: true, reason: "Promoted content" };
   }
 
-  // Cringe Rule: 1 - Contains muted words.
   const mutedWords = await getMutedWords();
   if (
     containsMutedWords(actorName, mutedWords) ||
@@ -265,9 +232,8 @@ async function checkForCringe({
     return { isCringe: true, reason: "Contains muted words" };
   }
 
-  const GROQ_API_URL = "https://api.x.ai/v1/chat/completions";
   const apiKey = await getApiKeyIfEnabled();
-  if (!apiKey) return; // Stop execution if no API key
+  if (!apiKey) return;
 
   const filters = await new Promise((resolve) => {
     chrome.storage.sync.get(
@@ -292,80 +258,51 @@ async function checkForCringe({
 
   const criteria = [];
   if (filters.filterMisleading)
-    criteria.push(
-      "Contains misleading or out-of-context information, including scams, phishing, hoaxes, or deliberate misinformation"
-    );
+    criteria.push("Contains misleading information, scams, or hoaxes");
   if (filters.filterHarassment)
-    criteria.push(
-      "Contains trolling, cyberbullying, harassment, or personal attacks"
-    );
+    criteria.push("Contains trolling, harassment, or personal attacks");
   if (filters.filterSuperficiality)
-    criteria.push(
-      "Promotes an obviously inauthentic, overly-curated, or misleading version of the author"
-    );
+    criteria.push("Promotes an obviously inauthentic or misleading persona");
   if (filters.filterLowEffort)
-    criteria.push(
-      "Uses low-effort engagement like 'Tag 3 people' or 'like if you agree' with no substance or tech-related discussion"
-    );
+    criteria.push("Uses low-effort engagement bait like 'Tag 3 people'");
   if (filters.filterIntrusiveAds)
-    criteria.push(
-      "Brand promotional content or ads that are intrusive, disruptive, or irrelevant to the professional feed"
-    );
+    criteria.push("Irrelevant brand promotional content or disruptive ads");
 
-  const SYSTEM_PROMPT_PREFIX =
-    platform === "twitter"
-      ? "You are a Twitter/X post analyzer. Determine if the post meets any of these criteria:"
-      : "You are a LinkedIn post analyzer. Determine if the post meets any of these criteria:";
-  const promptFromFilters =
-    criteria.length > 0
-      ? `${SYSTEM_PROMPT_PREFIX}\n- ${criteria.join(
-          "\n- "
-        )}\nIf any criteria are met, respond with POST_IS_CRINGE, otherwise POST_IS_NOT_CRINGE.`
-      : platform === "twitter"
-      ? "You are a Twitter/X post analyzer. No filters are active. Always respond with POST_IS_NOT_CRINGE."
-      : "You are a LinkedIn post analyzer. No filters are active. Always respond with POST_IS_NOT_CRINGE.";
+  const SYSTEM_PROMPT_PREFIX = "You are a content analyzer. Determine if the post meets any criteria:";
+  const promptFromFilters = criteria.length > 0
+    ? `${SYSTEM_PROMPT_PREFIX}\n- ${criteria.join("\n- ")}\nIf any met, respond with POST_IS_CRINGE, else POST_IS_NOT_CRINGE.`
+    : "Always respond with POST_IS_NOT_CRINGE.";
 
   const customPrompt = await getCustomPrompt();
-  const systemMessage =
-    customPrompt && customPrompt.trim().split(/\s+/).length >= 5
-      ? customPrompt
-      : promptFromFilters;
+  const customPromptFull = SYSTEM_PROMPT_PREFIX + "\n" + customPrompt + "\n If any met, respond with POST_IS_CRINGE, else POST_IS_NOT_CRINGE.";
+  const systemMessage = customPrompt && customPrompt.trim().split(/\s+/).length >= 5 ? customPromptFull : promptFromFilters;
 
   try {
-    const response = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "grok-4-1-fast-non-reasoning",
-        messages: [
-          { role: "system", content: systemMessage },
-          {
-            role: "user",
-            content:
-              (platform === "twitter"
-                ? "Twitter/X Post:\n\n"
-                : "LinkedIn Post:\n\n") +
-              postContent +
-              "\n\nRespond EXACTLY in one line: if cringe, 'POST_IS_CRINGE: <one short reason>'; if not, 'POST_IS_NOT_CRINGE'.",
-          },
-        ],
-        temperature: 0.1, // Lowering temperature for more consistent responses
-      }),
+    const result = await new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        {
+          type: "CHECK_CRINGE",
+          data: { apiKey, systemMessage, postContent },
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error("Runtime error:", chrome.runtime.lastError);
+            resolve({ success: false });
+          } else {
+            resolve(response);
+          }
+        }
+      );
     });
 
-    const data = await response.json();
-    if (data.error) {
-      return { isCringe: false, reason: null };
-    }
+    if (!result || !result.success) return { isCringe: false, reason: null };
+
+    const data = result.data;
+    if (data.error) return { isCringe: false, reason: null };
 
     const raw = (data.choices?.[0]?.message?.content || "").trim();
-    const lower = raw.toLowerCase();
-    if (lower.includes("post_is_cringe")) {
-      const reason =
-        raw.split(/post_is_cringe\s*:?/i)[1]?.trim() || "Cringe content";
+    if (raw.toLowerCase().includes("post_is_cringe")) {
+      const reason = raw.split(/post_is_cringe\s*:?/i)[1]?.trim() || "Cringe content";
       return { isCringe: true, reason };
     }
     return { isCringe: false, reason: null };
@@ -378,71 +315,42 @@ async function checkForCringe({
 const alreadyProcessedPosts = new Set();
 async function processLinkedInPost(post) {
   startHeartbeat("process");
+  const isLinkedIn = window.location.hostname.includes("linkedin.com");
 
-  // Updated Selector: Target the commentary text by its class
-  const commentaryElement = post.querySelector(
-    ".update-components-update-v2__commentary"
-  );
+  const commentaryElement = isLinkedIn
+    ? post.querySelector('[data-view-name="feed-commentary"], [data-testid="expandable-text-box"], .update-components-text, .feed-shared-update-v2__description')
+    : post.querySelector('[data-testid="tweetText"]');
 
-  if (!commentaryElement) {
-    console.warn("[Bloom Scroll] LinkedIn selector miss commentary");
-    return;
-  }
-
-  // Avoid reprocessing
-  // Note: Determine if you want to track the post container or the text element.
-  // Using the text element for the Set is safer if the DOM updates the container.
-  if (alreadyProcessedPosts.has(commentaryElement)) {
-    // console.warn("[Bloom Scroll] LinkedIn already processed");
-    return;
-  }
+  if (!commentaryElement) return;
+  if (alreadyProcessedPosts.has(commentaryElement)) return;
   alreadyProcessedPosts.add(commentaryElement);
   processedCount++;
 
-  // Post metadata
-  let actorName = "Unknown";
-  let actorDescription = "No description";
-  let actorSubDescription = "No sub-description";
-  let postImage = "No Image";
+  let actorName = "Unknown", actorDescription = "No description", actorSubDescription = "No sub-description", postImage = "No Image";
 
-  // Extract actor information from the update-components-actor section
-  const actorMetaLink = post.querySelector(
-    ".update-components-actor__meta-link"
-  );
-
-  if (actorMetaLink) {
-    // 1. Extract Name from the title span
-    const nameElement = actorMetaLink.querySelector(
-      '.update-components-actor__title span[dir="ltr"] span:not(.visually-hidden)'
-    );
+  if (isLinkedIn) {
+    const nameAnchor = post.querySelector('a[data-view-name="feed-header-text"]');
+    if (nameAnchor) {
+      actorName = nameAnchor.innerText.trim();
+      const headerTextContainer = nameAnchor.closest("div");
+      if (headerTextContainer) {
+        const textBlocks = headerTextContainer.querySelectorAll("p");
+        if (textBlocks.length > 1) actorDescription = textBlocks[1].innerText.trim();
+        if (textBlocks.length > 2) actorSubDescription = textBlocks[2].innerText.trim();
+      }
+    }
+  } else {
+    const nameElement = post.querySelector('[data-testid="User-Name"]');
     if (nameElement) {
-      actorName = nameElement.innerText.trim();
-    }
-
-    // 2. Extract Description (usually the user's headline/position)
-    const descriptionElement = actorMetaLink.querySelector(
-      ".update-components-actor__description span:not(.visually-hidden)"
-    );
-    if (descriptionElement) {
-      actorDescription = descriptionElement.innerText.trim();
+      actorName = nameElement.innerText.split("\n")[0] || "Unknown";
+      actorDescription = nameElement.innerText.split("\n")[1] || "No handle";
     }
   }
 
-  // 3. Extract Sub-description (time and visibility info)
-  const subDescElement = post.querySelector(
-    ".update-components-actor__sub-description span:not(.visually-hidden)"
-  );
-  if (subDescElement) {
-    actorSubDescription = subDescElement.innerText.trim();
-  }
+  const imageSelector = isLinkedIn ? '[data-view-name="feed-update-image"] img' : '[data-testid="tweetPhoto"] img';
+  const imageContainer = post.querySelector(imageSelector);
+  if (imageContainer) postImage = imageContainer.getAttribute("src");
 
-  // 4. Extract Image (if present)
-  const imageContainer = post.querySelector(".update-components-image img");
-  if (imageContainer) {
-    postImage = imageContainer.getAttribute("src");
-  }
-  startHeartbeat("gone far enough");
-  console.log(commentaryElement?.innerText?.trim());
   const analysis = await checkForCringe({
     actorName,
     actorDescription,
@@ -458,19 +366,20 @@ async function processLinkedInPost(post) {
         resolve({ filterMode: data.filterMode || "blur" });
       });
     });
-
-    cringeGuardThisPost(post, filterMode, analysis.reason, "linkedin");
+    cringeGuardThisPost(post, filterMode, analysis.reason);
     updateCringeStats(post.innerText);
   }
 }
 
 function cringeGuardExistingPostsLinkedIn() {
   startHeartbeat("scan");
-  const posts = document.querySelectorAll(
-    'div[data-view-name="feed-full-update"]'
-  );
+  const isLinkedIn = window.location.hostname.includes("linkedin.com");
+  const posts = isLinkedIn
+    ? document.querySelectorAll('div[data-view-name="feed-full-update"], div.feed-shared-update-v2, div[data-urn]')
+    : document.querySelectorAll('article[data-testid="tweet"]');
+
   if (posts.length === 0) {
-    console.warn("[Bloom Scroll] No LinkedIn posts found in initial scan");
+    console.warn(`[Bloom Scroll] No ${isLinkedIn ? 'LinkedIn' : 'X'} posts found in initial scan`);
   }
   for (const post of posts) {
     processLinkedInPost(post);
@@ -484,22 +393,18 @@ function observeNewPostsLinkedIn() {
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            // Check if the node itself is a post container
-            if (
-              node.matches &&
-              node.matches('div[data-view-name="feed-full-update"]')
-            ) {
-              processLinkedInPost(node);
+            const isLinkedIn = window.location.hostname.includes("linkedin.com");
+            const postSelector = isLinkedIn
+              ? 'div[data-view-name="feed-full-update"], div.feed-shared-update-v2, div[data-urn]'
+              : 'article[data-testid="tweet"]';
+
+            const postContainers = node.querySelectorAll(postSelector);
+            postContainers.forEach((postContainer) => processPost(postContainer));
+
+            // Check the node itself if it's a post
+            if (node.matches && node.matches(postSelector)) {
+              processPost(node);
             }
-
-            // Also check children for post containers
-            const postContainers = node.querySelectorAll(
-              'div[data-view-name="feed-full-update"]'
-            );
-
-            postContainers.forEach((postContainer) => {
-              processLinkedInPost(postContainer);
-            });
           }
         });
       }
